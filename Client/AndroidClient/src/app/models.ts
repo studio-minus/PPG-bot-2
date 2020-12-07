@@ -1,5 +1,5 @@
 // export const restEndpoint = 'http://REPLACE ME WITH THE SERVER ADDRESS/';
-export const restEndpoint = 'http://localhost:3042/';
+export const restEndpoint = 'http://136.244.109.47:5000/';
 export const noImage = 'https://i.imgur.com/THyjIPy.png';
 
 export class GuildInfo {
