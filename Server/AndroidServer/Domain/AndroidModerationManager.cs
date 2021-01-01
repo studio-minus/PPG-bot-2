@@ -41,7 +41,7 @@ namespace AndroidServer.Domain
         private ulong mutedRoleID;
         private readonly AndroidInstance instance;
         private IRole mutedRole = null;
-        private bool isBusyUnmuting = false;
+        private bool isBusyChecking = false;
 
         /// <summary>
         /// Construct a moderation manager
@@ -57,7 +57,11 @@ namespace AndroidServer.Domain
         /// </summary>
         public void Initialise()
         {
-            timer = new Timer(CheckExpiredEntries, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+            timer = new Timer((e) =>
+            {
+                if (!isBusyChecking)
+                    Task.Run(CheckExpiredEntries);
+            }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
         }
 
         private void RetrieveMutedRole()
@@ -65,34 +69,24 @@ namespace AndroidServer.Domain
             mutedRole = Guild.GetRole(mutedRoleID);
         }
 
-        private async void CheckExpiredEntries(object state)
+        private async Task CheckExpiredEntries()
         {
-            if (MutesByUser.Count == 0 || isBusyUnmuting) return;
-
-            isBusyUnmuting = true;
-            try
+            if (MutesByUser.Count == 0) return;
+            isBusyChecking = true;
+            var copy = MutesByUser.ToArray();
+            var now = DateTime.UtcNow;
+            foreach (var pair in copy)
             {
-                var now = DateTime.UtcNow;
-                foreach (var pair in MutesByUser.ToArray())
+                var expired = now >= pair.Value.Expiration;
+                if (expired)
                 {
-                    var expired = now >= pair.Value.Expiration;
-                    if (expired)
-                    {
-                        var user = await Guild.GetUserAsync(pair.Key);
-                        if (user != null)
-                            await Unmute(user);
-                        else
-                            MutesByUser.Remove(pair.Key);
-                    }
+                    var user = await Guild.GetUserAsync(pair.Key);
+                    if (user != null)
+                        await Unmute(user);
+                    else
+                        MutesByUser.Remove(pair.Key);
                 }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Failed to unmute: " + e.Message);
-            }
-            finally
-            {
-                isBusyUnmuting = false;
+                isBusyChecking = false;
             }
         }
 
@@ -106,11 +100,15 @@ namespace AndroidServer.Domain
 
             ulong id = user.Id;
 
-            if (!MutesByUser.TryGetValue(id, out var entry) || entry == null) return;
+            if (!MutesByUser.TryGetValue(id, out var entry) || entry == null)
+                return;
 
             var removalSuccess = MutesByUser.Remove(id);
             if (!removalSuccess)
+            {
                 Console.WriteLine("Could not remove " + id + " from the mute entry list");
+                return;
+            }
 
             if (user == null)
             {
@@ -142,13 +140,13 @@ namespace AndroidServer.Domain
             }
             else
             {
-                if (user == null)
+                if (MutesByUser.TryAdd(user.Id, new MuteEntry(user.Id, channel.Id, user.Guild.Id, DateTime.UtcNow + duration)))
+                    await channel.SendMessageAsync("muting " + user.Username);
+                else
                 {
-                    Console.WriteLine("User with ID " + user.Id + " is null");
+                    await channel.SendMessageAsync("failed to mute " + user.Username);
                     return;
                 }
-                MutesByUser.Add(user.Id, new MuteEntry(user.Id, channel.Id, user.Guild.Id, DateTime.UtcNow + duration));
-                await channel.SendMessageAsync("muting " + user.Username);
             }
             await SetMuteState(user, true);
         }
