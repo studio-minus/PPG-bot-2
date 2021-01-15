@@ -24,6 +24,12 @@
     <None Update="listening_address">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="mail-username">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="mail-password">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

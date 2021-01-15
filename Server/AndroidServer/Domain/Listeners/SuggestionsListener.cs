@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Timers;
 
@@ -48,6 +49,10 @@ namespace AndroidServer.Domain.Listeners
                 resetHour24 = d;
             }
         }
+        [UiVariableType(VariableType.Boolean)]
+        public bool SendEmail { get; set; } = false;
+        [UiVariableType(VariableType.String)]
+        public string EmailTarget { get; set; } = "enter@valid.email";
 
         private readonly Timer timer = new Timer();
         private bool canReset = true;
@@ -243,10 +248,19 @@ namespace AndroidServer.Domain.Listeners
                 await channel.SendMessageAsync($"the top {count} suggestions the past week were", false, embed);
 
             await channel.SendMessageAsync("resetting...");
-
             Suggestions.Clear();
-
             await channel.SendMessageAsync("suggestions reset (≧◡≦)");
+
+            if (SendEmail && IsValidEmail(EmailTarget))
+            {
+                string emailBody = "The 25 best suggestions this week were:\n\n" + string.Join("\n", embed.Fields.Select(f => f.Value));
+                AndroidService.Instance.Mail.SendEmail("Android 2", "zooi", EmailTarget, "Suggestions", emailBody);
+            }
+        }
+
+        private static bool IsValidEmail(string email)
+        {
+            return new Regex(@"\w+@\w+\.\w{2,}").IsMatch(email);
         }
 
         private (Embed embed, int count) CreateLeaderboardEmbed()

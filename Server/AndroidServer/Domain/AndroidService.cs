@@ -1,9 +1,11 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using Domain;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace AndroidServer.Domain
@@ -36,6 +38,11 @@ namespace AndroidServer.Domain
         public Dictionary<ulong, AndroidInstance> AndroidInstances = new Dictionary<ulong, AndroidInstance>();
 
         /// <summary>
+        /// Use to send mail
+        /// </summary>
+        public MailSender Mail;
+
+        /// <summary>
         /// Construct a service
         /// </summary>
         public AndroidService()
@@ -44,6 +51,14 @@ namespace AndroidServer.Domain
                 throw new Exception("Could not find bot token file at " + BotTokenFilePath);
 
             Instance = this;
+
+            Mail = new MailSender
+            {
+                Port = 587,
+                SMTPServer = "smtp-mail.outlook.com",
+                Username = File.ReadAllText("mail-username"),
+                Password = Encoding.ASCII.GetString(Convert.FromBase64String(File.ReadAllText("mail-password"))),
+            };
         }
 
         /// <summary>
